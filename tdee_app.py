@@ -29,6 +29,7 @@ def main():
     st.title("⚖️ 体重維持カロリー計算（TDEE）")
     st.caption("Mifflin-St Jeor または Katch-McArdle でTDEEを計算します。")
 
+    # サイドバー説明
     with st.sidebar:
         st.header("使い方")
         st.markdown(
@@ -39,26 +40,53 @@ def main():
             """
         )
 
+    # セッションステート初期化
+    defaults = {
+        "unit": "メートル法（kg, cm）",
+        "sex": "男性",
+        "age": 30,
+        "activity_label": "中程度の運動（週3〜5回の中強度運動）",
+        "weight": 65.0,
+        "height": 170.0,
+        "body_fat": 0.0,
+        "formula": "Mifflin-St Jeor",
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
     with st.form("tdee_form"):
-        unit = st.radio("単位", ["メートル法（kg, cm）", "ヤード・ポンド法（lb, in）"], horizontal=True)
+        unit = st.radio("単位", ["メートル法（kg, cm）", "ヤード・ポンド法（lb, in）"], index=0 if st.session_state["unit"].startswith("メートル") else 1, horizontal=True)
         col1, col2 = st.columns(2)
         with col1:
-            sex = st.selectbox("性別", ["男性", "女性"])
-            age = st.number_input("年齢（歳）", min_value=10, max_value=100, value=30, step=1)
-            activity_label = st.selectbox("活動レベル", list(ACTIVITY_FACTORS.keys()), index=2)
+            sex = st.selectbox("性別", ["男性", "女性"], index=0 if st.session_state["sex"]=="男性" else 1)
+            age = st.number_input("年齢（歳）", min_value=10, max_value=100, value=st.session_state["age"], step=1)
+            activity_label = st.selectbox("活動レベル", list(ACTIVITY_FACTORS.keys()), index=list(ACTIVITY_FACTORS.keys()).index(st.session_state["activity_label"]))
         with col2:
             if unit.startswith("メートル法"):
-                weight = st.number_input("体重（kg）", min_value=20.0, max_value=300.0, value=65.0, step=0.1)
-                height = st.number_input("身長（cm）", min_value=120.0, max_value=250.0, value=170.0, step=0.1)
+                weight = st.number_input("体重（kg）", min_value=20.0, max_value=300.0, value=st.session_state["weight"], step=0.1)
+                height = st.number_input("身長（cm）", min_value=120.0, max_value=250.0, value=st.session_state["height"], step=0.1)
             else:
-                weight = st.number_input("体重（lb）", min_value=44.0, max_value=660.0, value=143.3, step=0.1)
-                height = st.number_input("身長（in）", min_value=47.0, max_value=98.0, value=66.9, step=0.1)
-            body_fat = st.number_input("体脂肪率（%）※任意", min_value=0.0, max_value=70.0, value=0.0, step=0.1)
+                weight = st.number_input("体重（lb）", min_value=44.0, max_value=660.0, value=st.session_state["weight"], step=0.1)
+                height = st.number_input("身長（in）", min_value=47.0, max_value=98.0, value=st.session_state["height"], step=0.1)
+            body_fat = st.number_input("体脂肪率（%）※任意", min_value=0.0, max_value=70.0, value=st.session_state["body_fat"], step=0.1)
 
-        formula = st.radio("BMR式", ["Mifflin-St Jeor", "Katch-McArdle"], index=0)
+        formula = st.radio("BMR式", ["Mifflin-St Jeor", "Katch-McArdle"], index=0 if st.session_state["formula"].startswith("Mifflin") else 1)
         submitted = st.form_submit_button("計算 ▶")
 
     if submitted:
+        # 入力値をセッションに保存
+        st.session_state.update({
+            "unit": unit,
+            "sex": sex,
+            "age": age,
+            "activity_label": activity_label,
+            "weight": weight,
+            "height": height,
+            "body_fat": body_fat,
+            "formula": formula
+        })
+
         validate_positive("年齢", float(age))
         validate_positive("体重", float(weight))
         validate_positive("身長", float(height))
@@ -75,5 +103,20 @@ def main():
         cut_10 = tdee * 0.9
         bulk_10 = tdee * 1.1
 
-        st.success(f"BMR: {round_int(bmr)} kcal, TDEE: {round_int(tdee)} kcal")
-        st.markdown(f"- 維持: **{round_int(tdee)} kcal**\n- 減量(-10%): **{round_int(cut_10)} kcal**\n- 増量(+10%): **{round_int(bulk_10)} kcal**")
+        # 計算結果をセッションに保存
+        st.session_state['bmr'] = round_int(bmr)
+        st.session_state['tdee'] = round_int(tdee)
+        st.session_state['cut_10'] = round_int(cut_10)
+        st.session_state['bulk_10'] = round_int(bulk_10)
+
+    # 計算結果を表示
+    if 'bmr' in st.session_state:
+        st.success(f"BMR: {st.session_state['bmr']} kcal, TDEE: {st.session_state['tdee']} kcal")
+        st.markdown(
+            f"- 維持: **{st.session_state['tdee']} kcal**\n"
+            f"- 減量(-10%): **{st.session_state['cut_10']} kcal**\n"
+            f"- 増量(+10%): **{st.session_state['bulk_10']} kcal**"
+        )
+
+if __name__ == "__main__":
+    main()
