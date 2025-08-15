@@ -101,20 +101,21 @@ def main():
     if "pfc_result" not in st.session_state:
         st.session_state.pfc_result = None
 
-    names = [s.strip() for s in food_input.split(",") if s.strip()]
-
     if st.button("おすすめグラム数を取得"):
+        names = [s.strip() for s in food_input.split(",") if s.strip()]
         if not names:
             st.error("食材名を入力してください。")
         elif abs((p_ratio + f_ratio + c_ratio) - 100.0) > 1e-6:
             st.error("P+F+C の合計を 100% にしてください。")
         else:
+            # 計算実行
             st.session_state.pfc_result = get_gpt_full_pfc(names, total_kcal, p_ratio, f_ratio, c_ratio, min_gram=50)
 
     # --------------------------
-    # 結果表示関数
+    # 結果表示（ボタン未押でも表示）
     # --------------------------
-    def display_result(result):
+    result = st.session_state.pfc_result
+    if result:
         if "食材グラム" in result and "合計カロリー" in result and "合計PFC" in result:
             st.success("計算完了！")
 
@@ -136,10 +137,6 @@ def main():
             st.write(f"PFC比率: P {pfc.get('P',0)}% / F {pfc.get('F',0)}% / C {pfc.get('C',0)}%")
         else:
             st.warning("返却されたデータに必要なキーが含まれていません。JSON形式を確認してください。")
-
-    # ページロード時も自動で表示
-    if st.session_state.pfc_result:
-        display_result(st.session_state.pfc_result)
 
 if __name__ == "__main__":
     main()
