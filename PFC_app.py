@@ -67,16 +67,30 @@ def main():
     # 入力
     # --------------------------
     st.subheader("1) 食材名をカンマ区切りで入力")
-    food_input = st.text_input("例）ご飯, 鶏むね肉, 納豆", value="ご飯, 鶏むね肉")
+    if "food_input" not in st.session_state:
+        st.session_state.food_input = "ご飯, 鶏むね肉"
+    food_input = st.text_input("例）ご飯, 鶏むね肉, 納豆", value=st.session_state.food_input)
+    st.session_state.food_input = food_input
 
     st.subheader("2) 目標設定")
     col_a, col_b = st.columns([1,2])
     with col_a:
-        total_kcal = st.number_input("目標総カロリー (kcal)", min_value=0.0, value=600.0, step=10.0)
+        if "total_kcal" not in st.session_state:
+            st.session_state.total_kcal = 600.0
+        total_kcal = st.number_input("目標総カロリー (kcal)", min_value=0.0, value=st.session_state.total_kcal, step=10.0)
+        st.session_state.total_kcal = total_kcal
     with col_b:
-        p_ratio = st.number_input("P(%)", min_value=0.0, max_value=100.0, value=30.0, step=1.0)
-        f_ratio = st.number_input("F(%)", min_value=0.0, max_value=100.0, value=20.0, step=1.0)
-        c_ratio = st.number_input("C(%)", min_value=0.0, max_value=100.0, value=50.0, step=1.0)
+        if "p_ratio" not in st.session_state:
+            st.session_state.p_ratio = 30.0
+            st.session_state.f_ratio = 20.0
+            st.session_state.c_ratio = 50.0
+        p_ratio = st.number_input("P(%)", min_value=0.0, max_value=100.0, value=st.session_state.p_ratio, step=1.0)
+        f_ratio = st.number_input("F(%)", min_value=0.0, max_value=100.0, value=st.session_state.f_ratio, step=1.0)
+        c_ratio = st.number_input("C(%)", min_value=0.0, max_value=100.0, value=st.session_state.c_ratio, step=1.0)
+        st.session_state.p_ratio = p_ratio
+        st.session_state.f_ratio = f_ratio
+        st.session_state.c_ratio = c_ratio
+
         if abs((p_ratio + f_ratio + c_ratio) - 100.0) > 1e-6:
             st.error("P+F+C の合計を 100% にしてください。")
 
@@ -98,7 +112,7 @@ def main():
             st.session_state.pfc_result = get_gpt_full_pfc(names, total_kcal, p_ratio, f_ratio, c_ratio, min_gram=50)
 
     # --------------------------
-    # 結果表示
+    # 結果表示（ボタン未押でも表示）
     # --------------------------
     result = st.session_state.pfc_result
     if result:
@@ -126,4 +140,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
