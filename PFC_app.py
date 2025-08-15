@@ -16,25 +16,43 @@ def main():
         st.error("OpenAI API Key が .env から取得できませんでした。")
         return
 
-    st.title("🍱 PFCグラム計算アプリ（OpenAIシンプル版）")
+    st.title("🍱 PFCグラム計算アプリ（改善版）")
     st.caption("GPTに食材ごとの推奨グラム数と合計PFCを計算させます。")
 
     # --------------------------
-    # GPT計算関数
+    # GPT計算関数（最小グラム保証＋自然な分量指示）
     # --------------------------
     @st.cache_data(show_spinner=True)
-    def get_gpt_full_pfc(food_names, total_kcal, p_ratio, f_ratio, c_ratio):
+    def get_gpt_full_pfc(food_names, total_kcal, p_ratio, f_ratio, c_ratio, min_gram=50):
+        """
+        food_names: 食材名リスト
+        total_kcal: 総カロリー
+        p_ratio, f_ratio, c_ratio: PFC比率
+        min_gram: 各食材の最低グラム数
+        """
+        # 優先度：最初の2つを主食・主菜、それ以外は副菜
+        priority = {}
+        for i, food in enumerate(food_names):
+            if i == 0:
+                priority[food] = "主食"
+            elif i == 1:
+                priority[food] = "主菜"
+            else:
+                priority[food] = "副菜"
+
         prompt = f"""
         あなたは栄養士です。
         以下の条件を満たすように、食材ごとの推奨グラム数を計算してください。
-        合計カロリーとPFC比率も出してください。
 
         条件:
         - 食材: {', '.join(food_names)}
+        - 各食材の最低量: {min_gram}g
+        - 食材優先度: {priority}
         - 目標総カロリー: {total_kcal} kcal
         - PFC比率: P {p_ratio}%, F {f_ratio}%, C {c_ratio}%
-
-        出力はJSONのみ、解説なし。例:
+        - 出力は現実的な食材量にしてください。0gや極端に少ないグラムは避けてください。
+        - JSONのみで出力。解説なし。
+        例:
         {{
           "食材グラム": {{
             "ご飯": 150,
@@ -49,6 +67,7 @@ def main():
           }}
         }}
         """
+
         try:
             response = openai.chat.completions.create(
                 model="gpt-5-mini",
@@ -56,6 +75,14 @@ def main():
             )
             content = response.choices[0].message.content.strip()
             result = json.loads(content)
+
+            # --------------------------
+            # Python側補正：最低グラムを下回る食材があれば調整
+            # --------------------------
+            for food, gram in result.get("食材グラム", {}).items():
+                if gram < min_gram:
+                    result["食材グラム"][food] = min_gram
+
             return result
         except Exception as e:
             st.warning(f"計算に失敗: {e}")
@@ -92,10 +119,9 @@ def main():
             return
 
         # 計算実行
-        result = get_gpt_full_pfc(names, total_kcal, p_ratio, f_ratio, c_ratio)
+        result = get_gpt_full_pfc(names, total_kcal, p_ratio, f_ratio, c_ratio, min_gram=50)
 
         if result:
-            # 必要キーのチェック
             if "食材グラム" in result and "合計カロリー" in result and "合計PFC" in result:
                 st.success("計算完了！")
 
@@ -111,3 +137,7 @@ def main():
                 st.warning("返却されたデータに必要なキーが含まれていません。JSON形式を確認してください。")
         else:
             st.error("計算結果を取得できませんでした。")
+
+if __name__ == "__main__":
+    main()
+
