@@ -112,7 +112,7 @@ def main():
             st.session_state.pfc_result = get_gpt_full_pfc(names, total_kcal, p_ratio, f_ratio, c_ratio, min_gram=50)
 
     # --------------------------
-    # 結果表示（ボタン未押でも表示）
+    # 結果表示（ページ切り替え後も表示）
     # --------------------------
     result = st.session_state.pfc_result
     if result:
