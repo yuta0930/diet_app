@@ -16,7 +16,7 @@ def main():
         st.error("OpenAI API Key が .env から取得できませんでした。")
         return
 
-    st.title("🍱 PFCグラム計算アプリ（改善版＋食材カロリー表示）")
+    st.title("🍱 PFCグラム計算アプリ（自動再計算対応版＋食材カロリー表示）")
     st.caption("GPTに食材ごとの推奨グラム数と合計PFCを計算させます。")
 
     # --------------------------
@@ -66,60 +66,53 @@ def main():
     # --------------------------
     # 入力
     # --------------------------
-    st.subheader("1) 食材名をカンマ区切りで入力")
     if "food_input" not in st.session_state:
         st.session_state.food_input = "ご飯, 鶏むね肉"
-    food_input = st.text_input("例）ご飯, 鶏むね肉, 納豆", value=st.session_state.food_input)
+    food_input = st.text_input("1) 食材名（カンマ区切り）", value=st.session_state.food_input)
     st.session_state.food_input = food_input
 
-    st.subheader("2) 目標設定")
-    col_a, col_b = st.columns([1,2])
-    with col_a:
-        if "total_kcal" not in st.session_state:
-            st.session_state.total_kcal = 600.0
-        total_kcal = st.number_input("目標総カロリー (kcal)", min_value=0.0, value=st.session_state.total_kcal, step=10.0)
-        st.session_state.total_kcal = total_kcal
-    with col_b:
-        if "p_ratio" not in st.session_state:
-            st.session_state.p_ratio = 30.0
-            st.session_state.f_ratio = 20.0
-            st.session_state.c_ratio = 50.0
-        p_ratio = st.number_input("P(%)", min_value=0.0, max_value=100.0, value=st.session_state.p_ratio, step=1.0)
-        f_ratio = st.number_input("F(%)", min_value=0.0, max_value=100.0, value=st.session_state.f_ratio, step=1.0)
-        c_ratio = st.number_input("C(%)", min_value=0.0, max_value=100.0, value=st.session_state.c_ratio, step=1.0)
-        st.session_state.p_ratio = p_ratio
-        st.session_state.f_ratio = f_ratio
-        st.session_state.c_ratio = c_ratio
+    if "total_kcal" not in st.session_state:
+        st.session_state.total_kcal = 600.0
+    total_kcal = st.number_input("目標総カロリー (kcal)", min_value=0.0, value=st.session_state.total_kcal, step=10.0)
+    st.session_state.total_kcal = total_kcal
 
-        if abs((p_ratio + f_ratio + c_ratio) - 100.0) > 1e-6:
-            st.error("P+F+C の合計を 100% にしてください。")
+    if "p_ratio" not in st.session_state:
+        st.session_state.p_ratio = 30.0
+        st.session_state.f_ratio = 20.0
+        st.session_state.c_ratio = 50.0
+    p_ratio = st.number_input("P(%)", min_value=0.0, max_value=100.0, value=st.session_state.p_ratio, step=1.0)
+    f_ratio = st.number_input("F(%)", min_value=0.0, max_value=100.0, value=st.session_state.f_ratio, step=1.0)
+    c_ratio = st.number_input("C(%)", min_value=0.0, max_value=100.0, value=st.session_state.c_ratio, step=1.0)
+    st.session_state.p_ratio = p_ratio
+    st.session_state.f_ratio = f_ratio
+    st.session_state.c_ratio = c_ratio
+
+    if abs((p_ratio + f_ratio + c_ratio) - 100.0) > 1e-6:
+        st.error("P+F+C の合計を 100% にしてください。")
 
     # --------------------------
-    # 計算ボタン
+    # 計算実行（自動再計算）
     # --------------------------
-    st.subheader("3) GPTに計算してもらう")
-    if "pfc_result" not in st.session_state:
-        st.session_state.pfc_result = None
-
-    if st.button("おすすめグラム数を取得"):
-        names = [s.strip() for s in food_input.split(",") if s.strip()]
-        if not names:
-            st.error("食材名を入力してください。")
-        elif abs((p_ratio + f_ratio + c_ratio) - 100.0) > 1e-6:
-            st.error("P+F+C の合計を 100% にしてください。")
-        else:
-            # 計算実行
+    names = [s.strip() for s in food_input.split(",") if s.strip()]
+    if names and abs((p_ratio + f_ratio + c_ratio) - 100.0) <= 1e-6:
+        if "pfc_result" not in st.session_state or st.session_state.pfc_result is None:
+            # ページ切り替え後も自動で計算
             st.session_state.pfc_result = get_gpt_full_pfc(names, total_kcal, p_ratio, f_ratio, c_ratio, min_gram=50)
 
     # --------------------------
-    # 結果表示（ページ切り替え後も表示）
+    # 計算ボタン（再計算用）
+    # --------------------------
+    if st.button("再計算する"):
+        if names:
+            st.session_state.pfc_result = get_gpt_full_pfc(names, total_kcal, p_ratio, f_ratio, c_ratio, min_gram=50)
+
+    # --------------------------
+    # 結果表示
     # --------------------------
     result = st.session_state.pfc_result
     if result:
         if "食材グラム" in result and "合計カロリー" in result and "合計PFC" in result:
             st.success("計算完了！")
-
-            st.subheader("食材ごとの推奨グラム数とカロリー")
             grams = result["食材グラム"]
             total_cal = result["合計カロリー"]
 
@@ -129,10 +122,11 @@ def main():
                 kcal = total_cal * (gram / total_grams)
                 data.append({"食材名": food, "推奨グラム(g)": gram, "カロリー(kcal)": round(kcal,1)})
             df = pd.DataFrame(data)
+            st.subheader("食材ごとの推奨グラム数とカロリー")
             st.dataframe(df, use_container_width=True)
 
-            st.subheader("合計カロリーとPFC比率")
             pfc = result["合計PFC"]
+            st.subheader("合計カロリーとPFC比率")
             st.write(f"総カロリー: {total_cal} kcal（目標: {total_kcal} kcal）")
             st.write(f"PFC比率: P {pfc.get('P',0)}% / F {pfc.get('F',0)}% / C {pfc.get('C',0)}%")
         else:
