@@ -17,7 +17,7 @@ def main():
         return
 
     st.title("🍱 PFCグラム計算アプリ（OpenAIシンプル版）")
-    st.caption("GPTに食材ごとの推奨グラム数とカロリー、合計PFCを計算させます。")
+    st.caption("GPTに食材ごとの推奨グラム数と合計PFCを計算させます。")
 
     # --------------------------
     # GPT計算関数
@@ -26,7 +26,7 @@ def main():
     def get_gpt_full_pfc(food_names, total_kcal, p_ratio, f_ratio, c_ratio):
         prompt = f"""
         あなたは栄養士です。
-        以下の条件を満たすように、食材ごとの推奨グラム数と各食材ごとのカロリーを計算してください。
+        以下の条件を満たすように、食材ごとの推奨グラム数を計算してください。
         合計カロリーとPFC比率も出してください。
 
         条件:
@@ -34,7 +34,20 @@ def main():
         - 目標総カロリー: {total_kcal} kcal
         - PFC比率: P {p_ratio}%, F {f_ratio}%, C {c_ratio}%
 
-        出力はJSONのみ、解説なし。
+        出力はJSONのみ、解説なし。例:
+        {{
+          "食材グラム": {{
+            "ご飯": 150,
+            "鶏むね肉": 120,
+            "納豆": 50
+          }},
+          "合計カロリー": 610,
+          "合計PFC": {{
+            "P": 30,
+            "F": 20,
+            "C": 50
+          }}
+        }}
         """
         try:
             response = openai.chat.completions.create(
@@ -78,16 +91,23 @@ def main():
             st.error("P+F+C の合計を 100% にしてください。")
             return
 
+        # 計算実行
         result = get_gpt_full_pfc(names, total_kcal, p_ratio, f_ratio, c_ratio)
-        if result:
-            st.success("計算完了！")
-            st.subheader("食材ごとの推奨グラム数とカロリー")
-            grams_cal_df = pd.DataFrame([
-                {"食材名": name, "推奨グラム(g)": data["グラム"], "カロリー(kcal)": data["カロリー"]}
-                for name, data in result["食材"].items()
-            ])
-            st.dataframe(grams_cal_df, use_container_width=True)
 
-            st.subheader("合計カロリーとPFC比率")
-            st.write(f"総カロリー: {result['合計カロリー']} kcal（目標: {total_kcal} kcal）")
-            st.write(f"PFC比率: P {result['合計PFC']['P']}% / F {result['合計PFC']['F']}% / C {result['合計PFC']['C']}%")
+        if result:
+            # 必要キーのチェック
+            if "食材グラム" in result and "合計カロリー" in result and "合計PFC" in result:
+                st.success("計算完了！")
+
+                st.subheader("食材ごとの推奨グラム数")
+                grams_df = pd.DataFrame(list(result["食材グラム"].items()), columns=["食材名", "推奨グラム(g)"])
+                st.dataframe(grams_df, use_container_width=True)
+
+                st.subheader("合計カロリーとPFC比率")
+                pfc = result["合計PFC"]
+                st.write(f"総カロリー: {result.get('合計カロリー', 0)} kcal（目標: {total_kcal} kcal）")
+                st.write(f"PFC比率: P {pfc.get('P',0)}% / F {pfc.get('F',0)}% / C {pfc.get('C',0)}%")
+            else:
+                st.warning("返却されたデータに必要なキーが含まれていません。JSON形式を確認してください。")
+        else:
+            st.error("計算結果を取得できませんでした。")
