@@ -30,7 +30,6 @@ def main():
         p_ratio, f_ratio, c_ratio: PFC比率
         min_gram: 各食材の最低グラム数
         """
-        # 優先度：最初の2つを主食・主菜、それ以降は副菜
         priority = {}
         for i, food in enumerate(food_names):
             if i == 0:
@@ -54,17 +53,9 @@ def main():
         - JSONのみで出力。解説なし。
         例:
         {{
-          "食材グラム": {{
-            "ご飯": 150,
-            "鶏むね肉": 120,
-            "納豆": 50
-          }},
+          "食材グラム": {{"ご飯": 150, "鶏むね肉": 120, "納豆": 50}},
           "合計カロリー": 610,
-          "合計PFC": {{
-            "P": 30,
-            "F": 20,
-            "C": 50
-          }}
+          "合計PFC": {{"P": 30, "F": 20, "C": 50}}
         }}
         """
 
@@ -76,9 +67,7 @@ def main():
             content = response.choices[0].message.content.strip()
             result = json.loads(content)
 
-            # --------------------------
-            # Python側補正：最低グラムを下回る食材があれば調整
-            # --------------------------
+            # 最低グラムを下回る場合は補正
             for food, gram in result.get("食材グラム", {}).items():
                 if gram < min_gram:
                     result["食材グラム"][food] = min_gram
@@ -118,32 +107,27 @@ def main():
             st.error("P+F+C の合計を 100% にしてください。")
             return
 
-        # 計算実行
         result = get_gpt_full_pfc(names, total_kcal, p_ratio, f_ratio, c_ratio, min_gram=50)
 
-        if result:
-            if "食材グラム" in result and "合計カロリー" in result and "合計PFC" in result:
-                st.success("計算完了！")
+        if result and "食材グラム" in result and "合計カロリー" in result and "合計PFC" in result:
+            st.success("計算完了！")
 
-                st.subheader("食材ごとの推奨グラム数とカロリー")
-                grams = result["食材グラム"]
-                total_cal = result["合計カロリー"]
+            st.subheader("食材ごとの推奨グラム数とカロリー")
+            grams = result["食材グラム"]
+            total_cal = result["合計カロリー"]
 
-                # 簡易的に総カロリーを食材のグラム比率で按分してカロリー計算
-                total_grams = sum(grams.values())
-                data = []
-                for food, gram in grams.items():
-                    kcal = total_cal * (gram / total_grams)
-                    data.append({"食材名": food, "推奨グラム(g)": gram, "カロリー(kcal)": round(kcal,1)})
-                df = pd.DataFrame(data)
-                st.dataframe(df, use_container_width=True)
+            total_grams = sum(grams.values())
+            data = []
+            for food, gram in grams.items():
+                kcal = total_cal * (gram / total_grams)
+                data.append({"食材名": food, "推奨グラム(g)": gram, "カロリー(kcal)": round(kcal,1)})
+            df = pd.DataFrame(data)
+            st.dataframe(df, use_container_width=True)
 
-                st.subheader("合計カロリーとPFC比率")
-                pfc = result["合計PFC"]
-                st.write(f"総カロリー: {total_cal} kcal（目標: {total_kcal} kcal）")
-                st.write(f"PFC比率: P {pfc.get('P',0)}% / F {pfc.get('F',0)}% / C {pfc.get('C',0)}%")
-            else:
-                st.warning("返却されたデータに必要なキーが含まれていません。JSON形式を確認してください。")
+            st.subheader("合計カロリーとPFC比率")
+            pfc = result["合計PFC"]
+            st.write(f"総カロリー: {total_cal} kcal（目標: {total_kcal} kcal）")
+            st.write(f"PFC比率: P {pfc.get('P',0)}% / F {pfc.get('F',0)}% / C {pfc.get('C',0)}%")
         else:
             st.error("計算結果を取得できませんでした。")
 
