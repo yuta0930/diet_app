@@ -16,7 +16,7 @@ def main():
         st.error("OpenAI API Key が .env から取得できませんでした。")
         return
 
-    st.title("🍱 PFCグラム計算アプリ（改善版）")
+    st.title("🍱 PFCグラム計算アプリ（改善版＋食材カロリー表示）")
     st.caption("GPTに食材ごとの推奨グラム数と合計PFCを計算させます。")
 
     # --------------------------
@@ -30,7 +30,7 @@ def main():
         p_ratio, f_ratio, c_ratio: PFC比率
         min_gram: 各食材の最低グラム数
         """
-        # 優先度：最初の2つを主食・主菜、それ以外は副菜
+        # 優先度：最初の2つを主食・主菜、それ以降は副菜
         priority = {}
         for i, food in enumerate(food_names):
             if i == 0:
@@ -125,13 +125,22 @@ def main():
             if "食材グラム" in result and "合計カロリー" in result and "合計PFC" in result:
                 st.success("計算完了！")
 
-                st.subheader("食材ごとの推奨グラム数")
-                grams_df = pd.DataFrame(list(result["食材グラム"].items()), columns=["食材名", "推奨グラム(g)"])
-                st.dataframe(grams_df, use_container_width=True)
+                st.subheader("食材ごとの推奨グラム数とカロリー")
+                grams = result["食材グラム"]
+                total_cal = result["合計カロリー"]
+
+                # 簡易的に総カロリーを食材のグラム比率で按分してカロリー計算
+                total_grams = sum(grams.values())
+                data = []
+                for food, gram in grams.items():
+                    kcal = total_cal * (gram / total_grams)
+                    data.append({"食材名": food, "推奨グラム(g)": gram, "カロリー(kcal)": round(kcal,1)})
+                df = pd.DataFrame(data)
+                st.dataframe(df, use_container_width=True)
 
                 st.subheader("合計カロリーとPFC比率")
                 pfc = result["合計PFC"]
-                st.write(f"総カロリー: {result.get('合計カロリー', 0)} kcal（目標: {total_kcal} kcal）")
+                st.write(f"総カロリー: {total_cal} kcal（目標: {total_kcal} kcal）")
                 st.write(f"PFC比率: P {pfc.get('P',0)}% / F {pfc.get('F',0)}% / C {pfc.get('C',0)}%")
             else:
                 st.warning("返却されたデータに必要なキーが含まれていません。JSON形式を確認してください。")
@@ -140,4 +149,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
