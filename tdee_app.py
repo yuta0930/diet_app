@@ -71,7 +71,7 @@ def main():
                 height = st.number_input("身長（in）", min_value=47.0, max_value=98.0, value=st.session_state["height"], step=0.1)
             body_fat = st.number_input("体脂肪率（%）※任意", min_value=0.0, max_value=70.0, value=st.session_state["body_fat"], step=0.1)
 
-        formula = st.radio("BMR式", ["Mifflin-St Jeor", "Katch-McArdle"], index=0 if st.session_state["formula"].startswith("Mifflin") else 1)
+        formula = st.radio("BMR式", ["Mifflin-St Jeor(体脂肪率が分からない方)", "Katch-McArdle(体脂肪が分かる方)"], index=0 if st.session_state["formula"].startswith("Mifflin") else 1)
         submitted = st.form_submit_button("計算 ▶")
 
     if submitted:
