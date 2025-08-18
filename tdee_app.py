@@ -29,16 +29,6 @@ def main():
     st.title("⚖️ 体重維持カロリー計算（TDEE）")
     st.caption("Mifflin-St Jeor または Katch-McArdle でTDEEを計算します。")
 
-    # サイドバー説明
-    with st.sidebar:
-        st.header("使い方")
-        st.markdown(
-            """
-            1. 単位を選択  
-            2. 必要項目を入力して「計算 ▶」  
-            3. 維持・減量・増量のカロリー目安が表示
-            """
-        )
 
     # セッションステート初期化
     defaults = {
